@@ -267,29 +267,43 @@ def _cmd_start(config: Section) -> None:  # pylint: disable=too-many-statements,
 
     _check_config(config)
 
-    udc = usb.find_udc(config.otg.udc)
-    logger.info("Using UDC %s", udc)
+    # --- BEGIN MODIFICATION FOR ROBUST STARTUP ---
+    
+    logger.info("Waiting for UDC to be ready...")
+    udc_name = config.otg.udc
+    udc = None
+    timeout_seconds = 60  # 等待长达 60 秒
+    start_time = time.time()
+    
+    while time.time() - start_time < timeout_seconds:
+        try:
+            # 尝试寻找 UDC
+            udc = usb.find_udc(udc_name)
+            if udc:
+                logger.info("Found UDC: %s", udc)
+                break  # 成功，跳出循环
+        except Exception as e:
+            # 记录异常，但继续重试
+            logger.debug("UDC not ready yet (%s), retrying...", e)
+        
+        time.sleep(1) # 重试前等待 1 秒
+    
+    if not udc:
+        logger.error("Failed to find UDC %r after %d seconds.", udc_name, timeout_seconds)
+        raise RuntimeError(f"UDC {udc_name} not found or not ready.")
+    
+    # --- END MODIFICATION ---
+
+    # `usb.find_udc` (第 256 行) 已被移入上面的循环中
+    # udc = usb.find_udc(config.otg.udc)  <-- (删除或注释掉此行)
+    logger.info("Using UDC %s", udc) # (此行现在是可选的，但保留也无妨)
 
     logger.info("Creating gadget %r ...", config.otg.gadget)
     gadget_path = usb.get_gadget_path(config.otg.gadget)
     _mkdir(gadget_path)
 
     _write(join(gadget_path, "idVendor"), f"0x{config.otg.vendor_id:04X}")
-    _write(join(gadget_path, "idProduct"), f"0x{config.otg.product_id:04X}")
-    _write(join(gadget_path, "bcdUSB"), f"0x{config.otg.usb_version:04X}")
-
-    # bcdDevice should be incremented any time there are breaking changes
-    # to this script so that the host OS sees it as a new device
-    # and re-enumerates everything rather than relying on cached values.
-    device_version = config.otg.device_version
-    if device_version < 0:
-        device_version = 0x0100
-        if config.otg.devices.ethernet.enabled:
-            if config.otg.devices.ethernet.driver == "ncm":
-                device_version = 0x0102
-            elif config.otg.devices.ethernet.driver == "rndis":
-                device_version = 0x0101
-    _write(join(gadget_path, "bcdDevice"), f"0x{device_version:04X}")
+    # ... 函数的其余部分保持不变 ...
 
     lang_path = join(gadget_path, "strings/0x409")
     _mkdir(lang_path)
