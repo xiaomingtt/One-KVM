@@ -67,8 +67,13 @@ def _symlink(src: str, dest: str) -> None:
 
 
 def _rmdir(path: str) -> None:
-    get_logger().info("RMDIR --- %s", path)
-    os.rmdir(path)
+    logger = get_logger() # 获取 logger
+    logger.info("RMDIR --- %s", path)
+    try:
+        os.rmdir(path)
+    except FileNotFoundError:
+        # 如果目录已不存在，记录一个[SKIPPED]信息，而不是崩溃
+        logger.info("RMDIR --- [SKIPPED] %s (Already removed)", path)
 
 
 def _unlink(path: str, optional: bool=False) -> None:
@@ -77,7 +82,11 @@ def _unlink(path: str, optional: bool=False) -> None:
         logger.info("RM ------ [SKIPPED] %s", path)
         return
     logger.info("RM ------ %s", path)
-    os.unlink(path)
+    try:
+        os.unlink(path)
+    except FileNotFoundError:
+        # 如果文件已不存在，记录一个[SKIPPED]信息，而不是崩溃
+        logger.info("RM ------ [SKIPPED] %s (Already removed)", path)
 
 
 def _write(path: str, value: (str | int), optional: bool=False) -> None:
