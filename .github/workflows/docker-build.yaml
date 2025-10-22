@@ -21,17 +21,12 @@ on:
         required: false
         default: 'linux/amd64,linux/arm64,linux/arm/v7'
         type: string
-      enable_aliyun:
-        description: 'Push to Aliyun Registry'
-        required: false
-        default: true
-        type: boolean
 
 env:
-  DOCKERHUB_REGISTRY: docker.io
-  ALIYUN_REGISTRY: registry.cn-hangzhou.aliyuncs.com
-  STAGE0_IMAGE: kvmd-stage-0
-  MAIN_IMAGE: kvmd
+  ALIYUN_REGISTRY: crpi-9imt72nomvxrwz9w.cn-qingdao.personal.cr.aliyuncs.com
+  ALIYUN_NAMESPACE: kekuwang
+  STAGE0_IMAGE: one-kvm-stage-0
+  MAIN_IMAGE: one-kvm
 
 jobs:
   build-stage-0:
@@ -58,15 +53,7 @@ jobs:
         with:
           platforms: all
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.DOCKERHUB_REGISTRY }}
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Login to Aliyun Registry
-        if: github.event.inputs.enable_aliyun == 'true'
+      - name: Log in to Aliyun Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.ALIYUN_REGISTRY }}
@@ -78,8 +65,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            silentwind0/${{ env.STAGE0_IMAGE }}
-            ${{ github.event.inputs.enable_aliyun == 'true' && format('{0}/silentwind/{1}', env.ALIYUN_REGISTRY, env.STAGE0_IMAGE) || '' }}
+            ${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${{ env.STAGE0_IMAGE }}
           tags: |
             type=raw,value=latest
             type=raw,value=latest-{{date 'YYYYMMDD-HHmmss'}}
@@ -87,7 +73,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=One-KVM Stage-0 Base Image
             org.opencontainers.image.description=Base image for One-KVM build environment
-            org.opencontainers.image.vendor=One-KVM Project
+            org.opencontainers.image.vendor=${{ env.ALIYUN_NAMESPACE }}
 
       - name: Build and push stage-0 image
         uses: docker/build-push-action@v5
@@ -128,15 +114,7 @@ jobs:
         with:
           platforms: all
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.DOCKERHUB_REGISTRY }}
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Login to Aliyun Registry
-        if: github.event.inputs.enable_aliyun == 'true'
+      - name: Log in to Aliyun Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.ALIYUN_REGISTRY }}
@@ -157,16 +135,15 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            silentwind0/${{ env.MAIN_IMAGE }}
-            ${{ github.event.inputs.enable_aliyun == 'true' && format('{0}/silentwind/{1}', env.ALIYUN_REGISTRY, env.MAIN_IMAGE) || '' }}
+            ${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${{ env.MAIN_IMAGE }}
           tags: |
             type=raw,value=${{ steps.version.outputs.tag }}
             type=raw,value=${{ steps.version.outputs.tag }}-{{date 'YYYYMMDD-HHmmss'}}
             type=sha,prefix={{branch}}-
           labels: |
             org.opencontainers.image.title=One-KVM
-            org.opencontainers.image.description=DIY IP-KVM solution based on PiKVM
-            org.opencontainers.image.vendor=One-KVM Project
+            org.opencontainers.image.description=DIY IP-KVM solution (forked by xiaomingtt)
+            org.opencontainers.image.vendor=${{ env.ALIYUN_NAMESPACE }}
             org.opencontainers.image.version=${{ steps.version.outputs.tag }}
 
       - name: Build and push main image
@@ -189,6 +166,5 @@ jobs:
           echo "- **Build Type**: ${{ github.event.inputs.build_type }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Version Tag**: ${{ steps.version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Platforms**: ${{ github.event.inputs.platforms }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Aliyun Enabled**: ${{ github.event.inputs.enable_aliyun }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Tags**:" >> $GITHUB_STEP_SUMMARY
           echo "${{ steps.meta.outputs.tags }}" | sed 's/^/  - /' >> $GITHUB_STEP_SUMMARY
