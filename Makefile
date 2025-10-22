@@ -286,27 +286,35 @@ clean-all: testenv clean
 
 .PHONY: testenv
 
+
+ALIYUN_REGISTRY = crpi-9imt72nomvxrwz9w.cn-qingdao.personal.cr.aliyuncs.com/kekuwang
+IMAGE_NAME = one-kvm
+DOCKER ?= docker
+
 run-stage-0:
-	$(DOCKER) buildx build -t registry.cn-hangzhou.aliyuncs.com/silentwind/kvmd-stage-0 -t silentwind0/kvmd-stage-0 \
-		--allow security.insecure --progress plain \
-		--platform linux/amd64,linux/arm64,linux/arm/v7  \
+	$(DOCKER) buildx build \
+		-t $(ALIYUN_REGISTRY)/$(IMAGE_NAME)-stage-0:latest \
+		--platform linux/amd64,linux/arm64,linux/arm/v7 \
+		--build-arg CACHEBUST=$(shell date +%s) \
 		-f build/Dockerfile-stage-0 . \
 		--push
 
 run-build-dev:
-	$(DOCKER) buildx build -t registry.cn-hangzhou.aliyuncs.com/silentwind/kvmd:dev -t silentwind0/kvmd:dev \
-		--platform linux/amd64,linux/arm64,linux/arm/v7  \
-		--build-arg CACHEBUST=$(date +%s) \
+	$(DOCKER) buildx build \
+		-t $(ALIYUN_REGISTRY)/$(IMAGE_NAME):dev \
+		--platform linux/amd64,linux/arm64,linux/arm/v7 \
+		--build-arg CACHEBUST=$(shell date +%s) \
 		-f build/Dockerfile . \
 		--push
 
 run-build-release:
-	$(DOCKER) buildx build -t registry.cn-hangzhou.aliyuncs.com/silentwind/kvmd	-t silentwind0/kvmd \
-		--progress plain \
-		--platform linux/amd64,linux/arm64,linux/arm/v7  \
-		--build-arg CACHEBUST=$(date +%s) \
+	$(DOCKER) buildx build \
+		-t $(ALIYUN_REGISTRY)/$(IMAGE_NAME):latest \
+		--platform linux/amd64,linux/arm64,linux/arm/v7 \
+		--build-arg CACHEBUST=$(shell date +%s) \
 		-f build/Dockerfile . \
 		--push
+
 
 run-nogpio: testenv
 	- $(DOCKER) run --rm --name kvmd \
